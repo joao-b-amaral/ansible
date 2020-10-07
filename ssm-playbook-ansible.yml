@@ -1,0 +1,82 @@
+## Selecionar o hosts ou grupo de hosts de acordo com a sua necessidade
+- hosts: all
+## Trocar o remote user de acordo com seu ambiente
+  remote_user: ansible
+  become: true
+  tasks:
+##
+## Instalação no RHEL 7, Amazon Linux 1 e 2, OracleLinux e CentOS 7
+##
+  - name: instalar SSM caso seja RHEL 7 ou anterior, Amazon Linux, OracleLinux e CentOS 7 ou anterior
+    command: "{{ item }}"
+    loop:
+      - sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+      - sudo systemctl enable amazon-ssm-agent
+      - sudo systemctl start amazon-ssm-agent
+    when: 
+      - ansible_distribution == 'Red Hat Enterprise Linux' and ansible_distribution_version <= '7.9' or ansible_distribution == 'Amazon' or ansible_distribution == 'OracleLinux' or ansible_distribution == 'CentOS' and ansible_distribution_version <= '7.9'
+##
+## Instalar caso seja RHEL 8 ou posterior e CentOS 8 ou posterior, é necessário separar as versões devido ao gerenciador de pacotes dnf
+##
+  - name: instalar SSM caso seja RHEL 8 ou posterior e CentOS 8 ou posterior
+    command: "{{ item }}"
+    loop:
+      - sudo dnf install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+      - sudo systemctl enable amazon-ssm-agent
+      - sudo systemctl start amazon-ssm-agent
+    when: 
+      - ansible_distribution == 'Red Hat Enterprise Linux' and ansible_distribution_version >= '8.0' or ansible_distribution == 'CentOS' and ansible_distribution_version >= '8.0'
+##
+## Instalação no Ubuntu 16.04 ou posterior via Snap
+##
+  - name: instalar SSM caso seja um Ubuntu 16.04 ou posterior
+    command: "{{ item }}"
+    loop:
+      - sudo snap install amazon-ssm-agent --classic
+      - sudo systemctl start snap.amazon-ssm-agent.amazon-ssm-agent.service
+    when: 
+      - ansible_distribution == 'Ubuntu' and ansible_distribution_version >= '16.04'
+##
+## Instalação no Ubuntu 14.04 e Debian 8,9,10
+##
+  - name: instalar SSM no Ubuntu 14.04 e Debian 8,9,10
+    command: "{{ item }}"
+    loop:
+      - mkdir /tmp/ssm
+      - cd /tmp/ssm
+      - wget https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
+      - sudo dpkg -i amazon-ssm-agent.deb
+      - sudo systemctl enable amazon-ssm-agent
+      - sudo systemctl start amazon-ssm-aget
+    when: 
+      - ansible_distribution == 'Ubuntu' and ansible_distribution_version >= '14.04' or ansible_distribution == 'Debian'
+##
+## Instalação em distros baseadas em SUSE
+##
+  - name: instalar SSM caso seja uma distro SUSE
+    command: "{{ item }}"
+    loop:
+      - mkdir /tmp/ssm
+      - cd /tmp/ssm
+      - wget https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+      - sudo rpm --install amazon-ssm-agent.rpm
+      - sudo systemctl enable amazon-ssm-agent
+      - sudo systemctl start amazon-ssm-agent
+    when: 
+      - ansible_os_family == "SUSE"
+##
+## Windows Server
+## Instalação no Windows Server 2008,2012,2016 e 2019. A instalação é feita via PowerShell, é necessário saber adicionar a instância Windows ao Ansible.
+##
+  - name: instalar SSM agent no Windows Server
+    command: "{{ item }}"
+    loop:
+      - Invoke-WebRequest `
+            https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/windows_amd64/AmazonSSMAgentSetup.exe `
+            -OutFile $env:USERPROFILE\Desktop\SSMAgent_latest.exe
+      - Start-Process `
+            -FilePath $env:USERPROFILE\Desktop\SSMAgent_latest.exe `
+            -ArgumentList "/S"
+      - rm -Force $env:USERPROFILE\Desktop\SSMAgent_latest.exe
+    when: 
+      - ansible_os_family == "Windows"
